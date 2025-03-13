@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recherche Zone d'Arrêt</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            max-width: 600px;
+            margin: auto;
+        }
+
+        @media (prefers-color-scheme: light) {
+            body {
+                background-color: white;
+            }
+
+            .autocomplete-items {
+                color: black;
+                background-color: white;
+                border: 1px solid #d4d4d4;
+            }
+            
+            .autocomplete-items div:hover {
+                background-color: #f1f1f1;
+            }
+        }
+
+        @media (prefers-color-scheme: dark) {
+            body {
+                background-color: black;
+                color: rgb(211, 176, 176);
+            }
+
+            .autocomplete-items, input, select {
+                color: rgb(211, 176, 176);
+                background-color: black;
+                border: 1px solid;
+            }
+            
+            .autocomplete-items div:hover {
+                background-color: #3e2a2a;
+            }
+        }
+
+        input,
+        select {
+            padding: 10px;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+
+        .autocomplete-items {
+            position: absolute;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1000;
+        }
+
+        .autocomplete-items div {
+            padding: 10px;
+            cursor: pointer;
+        }
+
+        #result {
+            margin-top: 10px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>Rechercher une Zone d'Arrêt</h2>
+    <p>
+        Comme il existe beaucoup d'arrêts de métro, bus, tram et train en Île-de-France, il est possible de sélectionner le moyen de transport et la ville de la station. Toutefois, aucune obligation.
+    </p>
+    <select id="typeFilter">
+        <option value="">Tous types</option>
+    </select>
+    <select id="townFilter">
+        <option value="">Toutes villes</option>
+    </select>
+    <input type="text" id="search" placeholder="Entrez un nom de station...">
+    <div id="autocomplete-list" class="autocomplete-items"></div>
+    <p id="result"></p>
+
+    <script>
+        let data = [];
+
+        async function fetchData() {
+            try {
+                const response = await fetch('static/zones-d-arrets.json');
+                const json = await response.json();
+
+                console.log(json);
+                if (Array.isArray(json)) {
+                    data = json;
+                } else {
+                    console.error("Le format du JSON est incorrect.");
+                }
+
+                // Remplir le select avec les types uniques
+                const types = [...new Set(data.map(item => item.zdatype))];
+                const select = document.getElementById("typeFilter");
+                const typeToText = {
+                    "onstreetBus": "Bus",
+                    "railStation": "Train",
+                    "metroStation": "Métro",
+                    "onstreetTram": "Tramway"
+                }
+                types.forEach(type => {
+                    let option = document.createElement("option");
+                    option.value = type;
+                    option.textContent = typeToText[type];
+                    select.appendChild(option);
+                });
+
+                // Remplir le select avec les villes uniques
+                const towns = [...new Set(data.map(item => item.zdatown))];
+                const select2 = document.getElementById("townFilter");
+                towns.forEach(type => {
+                    let option = document.createElement("option");
+                    option.value = type;
+                    option.textContent = type;
+                    select2.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Erreur lors du chargement des données:', error);
+            }
+        }
+
+        function autocomplete(input) {
+            input.addEventListener("input", function () {
+                let listContainer = document.getElementById("autocomplete-list");
+                listContainer.innerHTML = "";
+                const query = this.value.toLowerCase();
+                const selectedType = document.getElementById("typeFilter").value;
+                const selectedTown = document.getElementById("townFilter").value;
+                if (!query) return;
+
+                const filtered = data.filter(item =>
+                    item.zdaname.toLowerCase().includes(query) &&
+                    (selectedType === "" || item.zdatype === selectedType) &&
+                    (selectedTown === "" || item.zdatown === selectedTown)
+                ).slice(0, 10);
+
+                filtered.forEach(item => {
+                    let div = document.createElement("div");
+                    div.textContent = item.zdaname;
+                    div.addEventListener("click", function () {
+                        input.value = item.zdaname;
+                        document.getElementById("result").textContent = `ID: ${item.zdaid}`;
+                        listContainer.innerHTML = "";
+                    });
+                    listContainer.appendChild(div);
+                });
+            });
+        }
+
+        document.addEventListener("DOMContentLoaded", async () => {
+            await fetchData();
+            autocomplete(document.getElementById("search"));
+        });
+    </script>
+</body>
+
+</html>
